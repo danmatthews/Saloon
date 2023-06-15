@@ -2,7 +2,9 @@
 
 namespace Saloon\Helpers;
 
+use Closure;
 use Saloon\Contracts\PendingRequest;
+use Saloon\Contracts\Response;
 
 class NewPipeline
 {
@@ -11,23 +13,18 @@ class NewPipeline
         //
     }
 
-    public function run(PendingRequest $pendingRequest)
+    public function run(PendingRequest $pendingRequest): Response
     {
-        $pipeline = array_reduce(
-            array_reverse($this->pipes), $this->carry(), static fn($passable) => $passable
-        );
-
-        return $pipeline($pendingRequest);
-    }
-
-    protected function carry(): \Closure
-    {
-        return static function ($stack, $pipe) {
-            return static function ($passable) use ($stack, $pipe) {
-                return $pipe($passable, $stack);
-            };
+        $this->pipes[] = static function (PendingRequest $pendingRequest, Closure $next) {
+            return $pendingRequest->getConnector()->sender()->sendRequest($pendingRequest);
         };
+
+        $action = static fn(PendingRequest $pendingRequest) => $pendingRequest;
+
+        foreach (array_reverse($this->pipes) as $pipe) {
+            $action = static fn(PendingRequest $pendingRequest): Response => $pipe($pendingRequest, $action);
+        }
+
+        return $action($pendingRequest);
     }
-
-
 }

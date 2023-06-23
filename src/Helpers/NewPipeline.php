@@ -15,6 +15,8 @@ class NewPipeline
 
     public function run(PendingRequest $pendingRequest): Response
     {
+        // Todo: Add the following pipe in the middleware process
+
         $this->pipes[] = static function (PendingRequest $pendingRequest, Closure $next) {
             return $pendingRequest->getConnector()->sender()->sendRequest($pendingRequest);
         };

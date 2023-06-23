@@ -1,8 +1,10 @@
 <?php
 
+use GuzzleHttp\Psr7\HttpFactory;
 use Saloon\Contracts\PendingRequest;
 use Saloon\Exceptions\Request\Statuses\InternalServerErrorException;
 use Saloon\Helpers\NewPipeline;
+use Saloon\Http\Response;
 use Saloon\Tests\Fixtures\Connectors\TestConnector;
 use Saloon\Tests\Fixtures\Requests\ErrorRequest;
 use Saloon\Tests\Fixtures\Requests\UserRequest;
@@ -10,39 +12,25 @@ use Saloon\Tests\Fixtures\Requests\UserRequest;
 test('you can process through many pipes', function () {
     $pipes = [
         static function (PendingRequest $pendingRequest, Closure $next) {
+            $pendingRequest->headers()->add('ExampleHeader', 'Howdy');
+
             ray(1);
 
-            $response = $next($pendingRequest);
+            // Todo: Do we want to be able to just return early here?
+            // Todo: See what happens when you return a response early with Guzzle - we should still process the response
 
-            ray(5);
-
-            dd($response);
-        },
-        static function (PendingRequest $pendingRequest, Closure $next) {
-            ray(2);
-
-            $pendingRequest->setUrl('https://tests.saloon.dev/api/error');
+            return new Response((new HttpFactory())->createResponse(), $pendingRequest);
 
             return $next($pendingRequest);
         },
         static function (PendingRequest $pendingRequest, Closure $next) {
-            ray(3);
+            ray(2);
 
-            try {
-                return $next($pendingRequest);
-            } catch (InternalServerErrorException $exception) {
-                ray(6);
-
-                return $exception->getResponse();
-            }
-        },
-        static function (PendingRequest $pendingRequest, Closure $next) {
-            ray(4);
+            dd('hi');
 
             $response = $next($pendingRequest);
-            $response->throw();
 
-            return $response;
+            dd('yo', $response);
         },
     ];
 
